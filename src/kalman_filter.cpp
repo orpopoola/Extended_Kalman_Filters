@@ -37,19 +37,13 @@ void KalmanFilter::Update(const VectorXd &z) {
    */
    VectorXd z_pred = H_ * x_;
   VectorXd y = z - z_pred;
-  MatrixXd Ht = H_.transpose();
-  MatrixXd S = H_ * P_ * Ht + R_;
-  MatrixXd Si = S.inverse();
-  MatrixXd PHt = P_ * Ht;
-  MatrixXd K = PHt * Si;
-
-  //new estimate
-  x_ = x_ + (K * y);
-  long x_size = x_.size();
-  MatrixXd I = MatrixXd::Identity(x_size, x_size);
-  P_ = (I - K * H_) * P_;
+  UpdateCommon(y);
 }
-
+//To check and correct range of angle
+void NormalizeAngle(double& phi)
+{
+phi = atan2(sin(phi), cos(phi));
+}
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
   /**
    * TODO: update the state by using Extended Kalman Filter equations
@@ -76,21 +70,15 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   H_ekfi << rho, phi, rho_dot;
   VectorXd y = z - H_ekfi;
   // Check the angle
-  while (y(1)>M_PI) {
-    y(1) -= 2 * M_PI;
-  }
-  while (y(1)<-M_PI) {
-    y(1) += 2 * M_PI;
-  }
+  
+  NormalizeAngle(y(1));
 //continue with KF algorithm
-  MatrixXd Ht = H_.transpose();
-  MatrixXd S = H_ * P_ * Ht + R_;
-  MatrixXd Si = S.inverse();
-  MatrixXd PHt = P_ * Ht;
-  MatrixXd K = PHt * Si;
-  //new estimate
-  x_ = x_ + (K * y);
-  long x_size = x_.size();
-  MatrixXd I = MatrixXd::Identity(x_size, x_size);
-  P_ = (I - K * H_) * P_;
+  UpdateCommon(y);
+}
+void KalmanFilter::UpdateCommon(const VectorXd &y){
+const MatrixXd PHt = P_ * H_.transpose();
+const MatrixXd S = H_ * PHt + R_;
+const MatrixXd K = PHt*S.inverse();
+x_ += K*y;
+P_ -= K * H_ * P_;
 }
